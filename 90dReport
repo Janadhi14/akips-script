@@ -1,0 +1,62 @@
+import requests
+import json
+
+# AKIPS API configuration
+API_SERVER = "http://your_akips_server_url"
+API_PASSWORD = "your_api_password"
+
+# Define the 90-day time filter
+TIME_FILTER = "last90d"
+
+# Define the regex for interfaces "Gi1/0/xx"
+INTERFACE_REGEX = "/^Gi1\/0\/\d+/"
+
+def get_interface_usage():
+    # Build the API endpoint for mget to retrieve interface usage
+    api_endpoint = f"{API_SERVER}/api-script"
+    params = {
+        "password": API_PASSWORD,
+        "function": "mget",
+        "type": "interface",
+        "child_regex": INTERFACE_REGEX,
+        "time": TIME_FILTER
+    }
+
+    # Send the API request
+    response = requests.get(api_endpoint, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+        return None
+
+def generate_report(interface_data):
+    report = {}
+    for entry in interface_data:
+        device = entry.get("parent")
+        interface = entry.get("child")
+        usage = entry.get("value", {}).get("ifutil", 0)  # Replace with the correct attribute if available
+        
+        if device not in report:
+            report[device] = {"count": 0, "interfaces": []}
+        
+        report[device]["count"] += 1
+        report[device]["interfaces"].append({"name": interface, "usage": usage})
+    
+    return report
+
+def main():
+    interface_data = get_interface_usage()
+    if interface_data:
+        report = generate_report(interface_data)
+        print("90-Day Interface Usage Report")
+        for switch, data in report.items():
+            print(f"Switch: {switch}")
+            print(f"Number of Ports: {data['count']}")
+            for interface in data["interfaces"]:
+                print(f"  Interface: {interface['name']}, Usage: {interface['usage']}")
+
+if __name__ == "__main__":
+    main()
+
+
